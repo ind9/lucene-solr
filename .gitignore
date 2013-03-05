@@ -1,6 +1,7 @@
 # hdfs
 /solr/example/hdfs
 *.jar
+*.iml
 
 # .
 /classes
