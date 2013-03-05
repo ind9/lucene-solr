@@ -566,7 +566,6 @@ public class SimpleFacets {
     try {
       //Loop over fields; submit to executor, keeping the future
       for (String f : facetFs) {
-        System.out.println("******* Resolved facet field = " + f);
         parseParams(FacetParams.FACET_FIELD, f);
         final String termList = localParams == null ? null : localParams.get(CommonParams.TERMS);
         final String workerKey = key;
