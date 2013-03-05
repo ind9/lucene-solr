@@ -508,7 +508,34 @@ public class SimpleFacets {
     NamedList<Object> res = new SimpleOrderedMap<Object>();
     String[] facetFs = params.getParams(FacetParams.FACET_FIELD);
     if (null != facetFs) {
+
+      // Indix.001 - Wildcard expansion in facet field
+      List<String> indexedFieldsForFaceting = new ArrayList<String>();
+      Collection<String> indexedFieldNames = this.searcher.getFieldNames();
+
+      for (int i = 0; i < facetFs.length; i++) {
+
+        if (facetFs[i].contains("*")) {
+          // Add the resolved fields
+          String fieldRegex = facetFs[i].replaceAll("\\*", ".*");
+          for (String indexedFieldName : indexedFieldNames) {
+            if (indexedFieldName.matches(fieldRegex)) {
+              indexedFieldsForFaceting.add(indexedFieldName);
+            }
+          }
+        } else {
+          // Add the original field
+          indexedFieldsForFaceting.add(facetFs[i]);
+
+        }
+
+      }
+      facetFs = indexedFieldsForFaceting.toArray(new String[]{});
+      // Indix.001 - Wildcard expansion in facet field
+
+
       for (String f : facetFs) {
+        System.out.println("******* Resolved facet field = " + f);
         parseParams(FacetParams.FACET_FIELD, f);
         String termList = localParams == null ? null : localParams.get(CommonParams.TERMS);
         if (termList != null) {
