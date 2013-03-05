@@ -441,7 +441,6 @@ public class SimpleFacets {
 
 
       for (String f : facetFs) {
-        System.out.println("******* Resolved facet field = " + f);
         parseParams(FacetParams.FACET_FIELD, f);
         String termList = localParams == null ? null : localParams.get(CommonParams.TERMS);
         if (termList != null) {
