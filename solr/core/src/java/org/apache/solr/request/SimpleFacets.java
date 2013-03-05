@@ -530,6 +530,31 @@ public class SimpleFacets {
       return res;
     }
 
+      // Indix.001 - Wildcard expansion in facet field
+      List<String> indexedFieldsForFaceting = new ArrayList<String>();
+      Collection<String> indexedFieldNames = this.searcher.getFieldNames();
+
+      for (int i = 0; i < facetFs.length; i++) {
+
+        if (facetFs[i].contains("*")) {
+          // Add the resolved fields
+          String fieldRegex = facetFs[i].replaceAll("\\*", ".*");
+          for (String indexedFieldName : indexedFieldNames) {
+            if (indexedFieldName.matches(fieldRegex)) {
+              indexedFieldsForFaceting.add(indexedFieldName);
+            }
+          }
+        } else {
+          // Add the original field
+          indexedFieldsForFaceting.add(facetFs[i]);
+
+        }
+
+      }
+      facetFs = indexedFieldsForFaceting.toArray(new String[]{});
+      // Indix.001 - Wildcard expansion in facet field
+
+
     // Passing a negative number for FACET_THREADS implies an unlimited number of threads is acceptable.
     // Also, a subtlety of directExecutor is that no matter how many times you "submit" a job, it's really
     // just a method call in that it's run by the calling thread.
@@ -541,6 +566,7 @@ public class SimpleFacets {
     try {
       //Loop over fields; submit to executor, keeping the future
       for (String f : facetFs) {
+        System.out.println("******* Resolved facet field = " + f);
         parseParams(FacetParams.FACET_FIELD, f);
         final String termList = localParams == null ? null : localParams.get(CommonParams.TERMS);
         final String workerKey = key;
