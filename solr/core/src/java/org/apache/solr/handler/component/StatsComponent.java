@@ -19,6 +19,7 @@ package org.apache.solr.handler.component;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -165,6 +166,33 @@ class StatsInfo {
 
     String[] statsFs = params.getParams(StatsParams.STATS_FIELD);
     if (statsFs != null) {
+
+      // Indix.001 - Wildcard expansion in facet field
+      List<String> indexedFieldsForFaceting = new ArrayList<String>();
+      Collection<String> indexedFieldNames = rb.req.getSearcher().getFieldNames();
+
+      for (int i = 0; i < statsFs.length; i++) {
+
+        if (statsFs[i].contains("*")) {
+          // Add the resolved fields
+          String fieldRegex = statsFs[i].replaceAll("\\*", ".*");
+          for (String indexedFieldName : indexedFieldNames) {
+            if (indexedFieldName.matches(fieldRegex)) {
+              indexedFieldsForFaceting.add(indexedFieldName);
+            }
+          }
+        } else {
+          // Add the original field
+          indexedFieldsForFaceting.add(statsFs[i]);
+
+        }
+
+      }
+      statsFs = indexedFieldsForFaceting.toArray(new String[]{});
+      // Indix.001 - Wildcard expansion in facet field
+
+
+
       for (String field : statsFs) {
         SchemaField sf = rb.req.getSchema().getField(field);
         statsFields.put(field, StatsValuesFactory.createStatsValues(sf));
@@ -204,11 +232,42 @@ class SimpleStats {
     String[] statsFs = params.getParams(StatsParams.STATS_FIELD);
     boolean isShard = params.getBool(ShardParams.IS_SHARD, false);
     if (null != statsFs) {
+
+      // Indix.001 - Wildcard expansion in stats field
+      List<String> indexedFieldsForFaceting = new ArrayList<String>();
+      Collection<String> indexedFieldNames = this.searcher.getFieldNames();
+
+      for (int i = 0; i < statsFs.length; i++) {
+
+        if (statsFs[i].contains("*")) {
+          // Add the resolved fields
+          String fieldRegex = statsFs[i].replaceAll("\\*", ".*");
+          for (String indexedFieldName : indexedFieldNames) {
+            if (indexedFieldName.matches(fieldRegex)) {
+              indexedFieldsForFaceting.add(indexedFieldName);
+            }
+          }
+        } else {
+          // Add the original field
+          indexedFieldsForFaceting.add(statsFs[i]);
+
+        }
+
+      }
+      statsFs = indexedFieldsForFaceting.toArray(new String[]{});
+      // Indix.001 - Wildcard expansion in stats field
+
+
+
       for (String f : statsFs) {
+
         String[] facets = params.getFieldParams(f, StatsParams.STATS_FACET);
         if (facets == null) {
           facets = new String[0]; // make sure it is something...
         }
+
+
+
         SchemaField sf = searcher.getSchema().getField(f);
         FieldType ft = sf.getType();
         NamedList<?> stv;
