@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -153,6 +154,8 @@ class FieldCacheImpl implements FieldCache {
 
     final Map<Object,Map<CacheKey,Object>> readerCache = new WeakHashMap<Object,Map<CacheKey,Object>>();
     
+    final MapFactory<CacheKey,Object> mapFactory = new MapFactory<CacheKey, Object>();
+    
     protected abstract Object createValue(AtomicReader reader, CacheKey key, boolean setDocsWithField)
         throws IOException;
 
@@ -172,7 +175,7 @@ class FieldCacheImpl implements FieldCache {
         Map<CacheKey,Object> innerCache = readerCache.get(readerKey);
         if (innerCache == null) {
           // First time this reader is using FieldCache
-          innerCache = new HashMap<CacheKey,Object>();
+          innerCache = mapFactory.getMap();
           readerCache.put(readerKey, innerCache);
           wrapper.initReader(reader);
         }
@@ -193,7 +196,7 @@ class FieldCacheImpl implements FieldCache {
         innerCache = readerCache.get(readerKey);
         if (innerCache == null) {
           // First time this reader is using FieldCache
-          innerCache = new HashMap<CacheKey,Object>();
+          innerCache = mapFactory.getMap();
           readerCache.put(readerKey, innerCache);
           wrapper.initReader(reader);
           value = null;
@@ -248,6 +251,40 @@ class FieldCacheImpl implements FieldCache {
     }
   }
 
+  static final class LRIMap<K,V> extends LinkedHashMap<K,V> {
+      private int maxEntries;
+      
+      public LRIMap(int maxEntries) {
+        super();
+        this.maxEntries = maxEntries;
+      }
+      
+      private boolean limitExceeded = false;
+      
+      @Override
+      protected boolean removeEldestEntry(java.util.Map.Entry<K,V> eldest) {
+        if (size() > maxEntries) {
+          if (!limitExceeded) {
+            System.out
+                .println("Cache Entry limit exceeded. Cache will be trimmed. Performance may be impacted.");
+            limitExceeded = true;
+          }
+          return true;
+        }
+        return false;
+      }
+    }
+    
+    static class MapFactory<K,V> {
+      Map<K,V> getMap() {
+        if (Integer.getInteger("lucene.fieldCache.maxFields") != null) {
+          return new LRIMap<K,V>(
+              Integer.getInteger("lucene.fieldCache.maxFields"));
+        }
+        return new HashMap();
+      }
+    }
+    
   /** Expert: Every composite-key in the internal cache is of this type. */
   static class CacheKey {
     final String field;        // which Field
@@ -392,7 +429,7 @@ class FieldCacheImpl implements FieldCache {
     public BytesFromArray(byte[] values) {
       this.values = values;
     }
-    
+   
     @Override
     public byte get(int docID) {
       return values[docID];
