@@ -277,11 +277,13 @@ class FieldCacheImpl implements FieldCache {
     
     static class MapFactory<K,V> {
       Map<K,V> getMap() {
+        System.out.println("lucene.fieldCache.maxfields = " + Integer.getInteger("lucene.fieldCache.maxFields"));
         if (Integer.getInteger("lucene.fieldCache.maxFields") != null) {
           return new LRIMap<K,V>(
               Integer.getInteger("lucene.fieldCache.maxFields"));
         }
-        return new HashMap();
+        System.out.println("Settting the lucene.fieldCache.maxfields = 200");
+        return new LRIMap<K, V>(200);
       }
     }
     
