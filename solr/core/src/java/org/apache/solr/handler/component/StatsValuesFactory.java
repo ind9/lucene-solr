@@ -23,6 +23,9 @@ import java.util.Date;
 import java.util.Map;
 import java.util.HashMap;
 
+import com.clearspring.analytics.stream.cardinality.HyperLogLog;
+import com.clearspring.analytics.stream.cardinality.ICardinality;
+import com.clearspring.analytics.stream.cardinality.RegisterSet;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
@@ -71,7 +74,7 @@ public class StatsValuesFactory {
 /**
  * Abstract implementation of {@link org.apache.solr.handler.component.StatsValues} that provides the default behavior
  * for most StatsValues implementations.
- *
+ * <p/>
  * There are very few requirements placed on what statistics concrete implementations should collect, with the only required
  * statistics being the minimum and maximum values.
  */
@@ -85,7 +88,8 @@ abstract class AbstractStatsValues<T> implements StatsValues {
   protected long count;
   private ValueSource valueSource;
   protected FunctionValues values;
-  
+  protected ICardinality cardinality = new HyperLogLog(20);
+
   // facetField   facetValue
   protected Map<String, Map<String, StatsValues>> facets = new HashMap<String, Map<String, StatsValues>>();
 
@@ -101,6 +105,12 @@ abstract class AbstractStatsValues<T> implements StatsValues {
   public void accumulate(NamedList stv) {
     count += (Long) stv.get("count");
     missing += (Long) stv.get("missing");
+    try {
+      cardinality = cardinality.merge(HyperLogLog.Builder.build((byte[]) stv.get("cardhash")));
+    } catch (Exception e) {
+      System.err.println("Error merging hyperloglog");
+      e.printStackTrace();
+    }
 
     updateMinMax((T) stv.get("min"), (T) stv.get("max"));
     updateTypeSpecificStats(stv);
@@ -135,12 +145,13 @@ abstract class AbstractStatsValues<T> implements StatsValues {
    */
   @Override
   public void accumulate(BytesRef value, int count) {
-    T typedValue = (T)ft.toObject(sf, value);
+    T typedValue = (T) ft.toObject(sf, value);
     accumulate(typedValue, count);
   }
 
   public void accumulate(T value, int count) {
     this.count += count;
+    cardinality.offer(value);
     updateMinMax(value, value);
     updateTypeSpecificStats(value, count);
   }
@@ -152,7 +163,7 @@ abstract class AbstractStatsValues<T> implements StatsValues {
   public void missing() {
     missing++;
   }
-   
+
   /**
    * {@inheritDoc}
    */
@@ -180,9 +191,16 @@ abstract class AbstractStatsValues<T> implements StatsValues {
     res.add("max", max);
     res.add("count", count);
     res.add("missing", missing);
+    try {
+      res.add("cardhash", cardinality.getBytes());
+      res.add("cardinality", cardinality.cardinality());
+    } catch (Exception e) {
+      System.err.println("Error marshalling cardinality");
+      e.printStackTrace();
+    }
     addTypeSpecificStats(res);
 
-     // add the facet stats
+    // add the facet stats
     NamedList<NamedList<?>> nl = new SimpleOrderedMap<NamedList<?>>();
     for (Map.Entry<String, Map<String, StatsValues>> entry : facets.entrySet()) {
       NamedList<NamedList<?>> nl2 = new SimpleOrderedMap<NamedList<?>>();
@@ -233,7 +251,7 @@ abstract class AbstractStatsValues<T> implements StatsValues {
   protected abstract void addTypeSpecificStats(NamedList<Object> res);
 }
 
- /**
+/**
  * Implementation of StatsValues that supports Double values
  */
 class NumericStatsValues extends AbstractStatsValues<Number> {
@@ -261,8 +279,8 @@ class NumericStatsValues extends AbstractStatsValues<Number> {
    */
   @Override
   public void updateTypeSpecificStats(NamedList stv) {
-    sum += ((Number)stv.get("sum")).doubleValue();
-    sumOfSquares += ((Number)stv.get("sumOfSquares")).doubleValue();
+    sum += ((Number) stv.get("sum")).doubleValue();
+    sumOfSquares += ((Number) stv.get("sumOfSquares")).doubleValue();
   }
 
   /**
@@ -275,7 +293,7 @@ class NumericStatsValues extends AbstractStatsValues<Number> {
     sum += value * count;
   }
 
-   /**
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -338,7 +356,7 @@ class DateStatsValues extends AbstractStatsValues<Date> {
   @Override
   protected void updateTypeSpecificStats(NamedList stv) {
     sum += ((Date) stv.get("sum")).getTime();
-    sumOfSquares += ((Number)stv.get("sumOfSquares")).doubleValue();
+    sumOfSquares += ((Number) stv.get("sumOfSquares")).doubleValue();
   }
 
   /**
@@ -351,15 +369,15 @@ class DateStatsValues extends AbstractStatsValues<Date> {
     sum += value * count;
   }
 
-   /**
+  /**
    * {@inheritDoc}
    */
   @Override
   protected void updateMinMax(Date min, Date max) {
-    if(this.min==null || this.min.after(min)) {
+    if (this.min == null || this.min.after(min)) {
       this.min = min;
     }
-    if(this.max==null || this.max.before(min)) {
+    if (this.max == null || this.max.before(min)) {
       this.max = max;
     }
   }
@@ -371,7 +389,7 @@ class DateStatsValues extends AbstractStatsValues<Date> {
    */
   @Override
   protected void addTypeSpecificStats(NamedList<Object> res) {
-    if(sum<=0) {
+    if (sum <= 0) {
       return; // date==0 is meaningless
     }
     res.add("sum", new Date(sum));
@@ -381,9 +399,8 @@ class DateStatsValues extends AbstractStatsValues<Date> {
     res.add("sumOfSquares", sumOfSquares);
     res.add("stddev", getStandardDeviation());
   }
-  
 
-  
+
   /**
    * Calculates the standard deviation.  For dates, this is really the MS deviation
    *
@@ -431,7 +448,7 @@ class StringStatsValues extends AbstractStatsValues<String> {
     // No type specific stats
   }
 
-   /**
+  /**
    * {@inheritDoc}
    */
   @Override

@@ -282,7 +282,7 @@ class SimpleStats {
         if (isShard == true || (Long) stv.get("count") > 0) {
           res.add(f, stv);
         } else {
-          res.add(f, null);
+          res.add(f, stv);
         }
       }
     }
