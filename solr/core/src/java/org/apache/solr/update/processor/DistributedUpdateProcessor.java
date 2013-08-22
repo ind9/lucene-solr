@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
@@ -645,6 +647,41 @@ public class DistributedUpdateProcessor extends UpdateRequestProcessor {
           } else if ("set".equals(key)) {
             updateField = true;
             oldDoc.setField(sif.getName(),  fieldVal, sif.getBoost());
+          } else if ("replace".equals(key)) {
+            updateField = true;
+            
+            final String name = sif.getName();
+            SolrInputField existingField = oldDoc.get(name);
+            if (existingField != null) {
+              final Pattern reg = Pattern.compile(fieldVal.toString());
+              final Collection<Object> original = existingField.getValues();
+              
+	            oldDoc.setField(name, null);
+	            for(Object value : original){
+	              final Matcher m = reg.matcher(value.toString());
+	              if(!m.matches()){
+	                oldDoc.addField(name, value, sif.getBoost());
+	              }
+	            }
+            }
+	            
+          } else if ("remove".equals(key)) {
+            updateField = true;
+            final String name = sif.getName();
+            SolrInputField existingField = oldDoc.get(name);
+            if (existingField != null) {
+              final Pattern reg = Pattern.compile(fieldVal.toString());
+              final Collection<Object> original = existingField.getValues();
+              
+	            oldDoc.setField(name, null);
+	            for(Object value : original){
+	              final Matcher m = reg.matcher(value.toString());
+	              if(!m.matches()){
+	                oldDoc.addField(name, value, sif.getBoost());
+	              }
+	            }
+	            
+            }
           } else if ("inc".equals(key)) {
             updateField = true;
             SolrInputField numericField = oldDoc.get(sif.getName());
