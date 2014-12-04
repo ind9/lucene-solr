@@ -130,7 +130,7 @@
     </subant>
   </target>
 
-  <property name="version" value="4.6.indix.001-SNAPSHOT"/>
+  <property name="version" value="4.6.indix.002-SNAPSHOT"/>
   <property name="maven-build-dir" value="maven-build"/>
   <property name="maven-version" value="2.2.1"/>
   

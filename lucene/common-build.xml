@@ -53,7 +53,7 @@
   <property name="tests.luceneMatchVersion" value="4.6"/>
   <property name="dev.version.base" value="4.6"/>
   <property name="dev.version.suffix" value="SNAPSHOT"/>
-  <property name="dev.version" value="4.6.indix.001-SNAPSHOT"/>
+  <property name="dev.version" value="4.6.indix.002-SNAPSHOT"/>
   <property name="version" value="${dev.version}"/>
   <property name="spec.version" value="${version}"/>	
   
